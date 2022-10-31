@@ -1,5 +1,5 @@
 [package]
-name = "esp-hello-display"
+name = "esp-keypad-example"
 version = "0.1.0"
 authors = ["Kirill Mikhailov <playfulfence@gmail.com>"]
 edition = "2021"
@@ -58,7 +58,6 @@ embedded-graphics = "0.7.1"
 embedded-graphics-core = "0.3.3"
 display-interface = "0.4"
 display-interface-spi = "0.4"
-libm = "0.2.5"
 keypad2 = "0.1.1"
 
 [features]
