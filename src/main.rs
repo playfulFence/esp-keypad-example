@@ -24,26 +24,10 @@ use hal::{
     Delay,
 };
 
+use alloc::string::String;
+use alloc::string;
 
 use keypad2::{Keypad, Columns, Rows};
-
-use ili9341::{DisplaySize240x320, Ili9341, Orientation};
-
-use display_interface_spi::SPIInterfaceNoCS;
-
-use embedded_graphics::mono_font::MonoTextStyle;
-use embedded_graphics::pixelcolor::*;
-use embedded_graphics::prelude::*;
-use embedded_graphics::primitives::*;
-use embedded_graphics::text::*;
-use embedded_graphics::image::Image;
-use embedded_graphics::geometry::*;
-use embedded_graphics::draw_target::DrawTarget;
-use embedded_graphics::mono_font::{ascii::FONT_10X20, MonoTextStyleBuilder};
-
-use profont::{PROFONT_24_POINT, PROFONT_18_POINT};
-
-
 
 #[cfg(feature="xtensa-lx-rt")]
 use xtensa_lx_rt::entry;
@@ -54,87 +38,26 @@ use esp_println::println;
 use esp_backtrace as _;
 
 
-/* Some stuff for correct orientation and color on ILI9341 */
-pub enum KalugaOrientation {
-    Portrait,
-    PortraitFlipped,
-    Landscape,
-    LandscapeVericallyFlipped,
-    LandscapeFlipped,
-}
+extern crate alloc;
+#[global_allocator]
+static ALLOCATOR: esp_alloc::EspHeap = esp_alloc::EspHeap::empty();
 
-impl ili9341::Mode for KalugaOrientation {
-    fn mode(&self) -> u8 {
-        match self {
-            Self::Portrait => 0,
-            Self::LandscapeVericallyFlipped => 0x20,
-            Self::Landscape => 0x20 | 0x40,
-            Self::PortraitFlipped => 0x80 | 0x40,
-            Self::LandscapeFlipped => 0x80 | 0x20,
-        }
+fn init_heap() {
+    const HEAP_SIZE: usize = 32 * 1024;
+
+    extern "C" {
+        static mut _heap_start: u32;
     }
 
-    fn is_landscape(&self) -> bool {
-        matches!(self, Self::Landscape | Self::LandscapeFlipped | Self::LandscapeVericallyFlipped)
+    unsafe {
+        let heap_start = &_heap_start as *const _ as usize;
+        ALLOCATOR.init(heap_start as *mut u8, HEAP_SIZE);
     }
 }
-
-#[derive(Copy, Clone, PartialEq)]
-pub enum Event {
-    Pressed,
-    Released,
-    Nothing,
-}
-pub struct Button<T> {
-    button: T,
-    pressed: bool,
-}
-impl<T: ::embedded_hal::digital::v2::InputPin<Error = core::convert::Infallible>> Button<T> {
-    pub fn new(button: T) -> Self {
-        Button {
-            button,
-            pressed: true,
-        }
-    }
-    pub fn check(&mut self){
-        self.pressed = !self.button.is_low().unwrap();
-    }
-
-    pub fn poll(&mut self, delay :&mut Delay) -> Event {
-        let pressed_now = !self.button.is_low().unwrap();
-        if !self.pressed  &&  pressed_now
-        {
-            delay.delay_ms(30 as u32);
-            self.check();
-            if !self.button.is_low().unwrap() {
-                Event::Pressed
-            }
-            else {
-                Event::Nothing
-            }
-        }
-        else if self.pressed && !pressed_now{
-            delay.delay_ms(30 as u32);
-            self.check();
-            if self.button.is_low().unwrap()
-            {
-                Event::Released
-            }
-            else {
-                Event::Nothing
-            }
-        }
-        else{
-            Event::Nothing
-        }
-        
-    }
-}
-
-
 
 #[entry]
 fn main() -> ! {
+    init_heap();
     let peripherals = Peripherals::take().unwrap();
 
     #[cfg(any(feature = "esp32"))]
@@ -159,37 +82,50 @@ fn main() -> ! {
     let mut delay = Delay::new(&clocks);
     let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
 
-    let mut row1 = io.pins.gpio6.into_pull_up_input();
-    let mut row2 = io.pins.gpio5.into_pull_up_input();
-    let mut row3 = io.pins.gpio4.into_pull_up_input();
-    let mut row4 = io.pins.gpio3.into_pull_up_input();
+    /* Set your password here */
+    let pwd : String = String::from("12345");
 
-    let mut col1 = io.pins.gpio2.into_open_drain_output();
-    let mut col2 = io.pins.gpio1.into_open_drain_output();
-    let mut col3 = io.pins.gpio0.into_open_drain_output();
+    let mut keypad = Keypad::new((  
+                    /* ROWS */
+        io.pins.gpio6.into_pull_up_input(), // R1
+        io.pins.gpio5.into_pull_up_input(), // R2
+        io.pins.gpio4.into_pull_up_input(), // R3
+        io.pins.gpio3.into_pull_up_input(), // R4
+    ),
+    (   
+                    /* COLUMNS */
+        io.pins.gpio2.into_open_drain_output(), // COL1
+        io.pins.gpio1.into_open_drain_output(), // COL2
+        io.pins.gpio0.into_open_drain_output(), // COL3
+    ));
 
-    let rows = (
-        io.pins.gpio6.into_pull_up_input(),
-        io.pins.gpio5.into_pull_up_input(),
-        io.pins.gpio4.into_pull_up_input(),
-        io.pins.gpio3.into_pull_up_input(),
-    );
-
-    let cols = ( 
-        col1,
-        col2,
-        col3,
-    );
-
-    let mut keypad = Keypad::new(rows, cols);
-    
+    let mut user_pwd: String = String::new();
 
     loop {
-        let key = keypad.read_char(&mut delay);
+        let mut key = keypad.read_char(&mut delay);
 
         if key != ' '
         {
-            println!("{}", key);
+            /* Use # as an Enter button */
+            if key == '#' {
+                if user_pwd == pwd
+                {
+                    println!("Correct!");
+                    while (true) {}
+                }
+                else 
+                {
+                    user_pwd.clear();
+                    println!("Wrong password! Try again...");
+                }
+            }
+            else 
+            {
+                println!("{}", key);
+                user_pwd.push(key);
+                
+            }
+            while (key != ' ') { key = keypad.read_char(&mut delay);}
         }
     }
 }
