@@ -13,10 +13,9 @@ use esp32c3_hal as hal;
 use hal::{
     clock::ClockControl,
     pac::Peripherals,
-    gpio_types::*, 
     gpio::*,
     prelude::*,
-    spi::{dma::WithDmaSpi2, Spi, SpiMode},
+    spi::{Spi, SpiMode},
     systimer::SystemTimer,
     timer::TimerGroup,
     Rtc,
@@ -59,13 +58,8 @@ fn init_heap() {
 fn main() -> ! {
     init_heap();
     let peripherals = Peripherals::take().unwrap();
-
-    #[cfg(any(feature = "esp32"))]
-    let mut system = peripherals.DPORT.split();
-    #[cfg(any(feature = "esp32s2", feature = "esp32s3", feature = "esp32c3"))]
-    let mut system = peripherals.SYSTEM.split();
-
-    let mut clocks = ClockControl::boot_defaults(system.clock_control).freeze();
+    let system = peripherals.SYSTEM.split();
+    let clocks = ClockControl::boot_defaults(system.clock_control).freeze();
 
     // Disable the RTC and TIMG watchdog timers
     let mut rtc = Rtc::new(peripherals.RTC_CNTL);
@@ -73,16 +67,15 @@ fn main() -> ! {
     let mut wdt0 = timer_group0.wdt;
     let timer_group1 = TimerGroup::new(peripherals.TIMG1, &clocks);
     let mut wdt1 = timer_group1.wdt;
-    
+
+
     rtc.rwdt.disable();
     wdt0.disable();
     wdt1.disable();
-
- 
     let mut delay = Delay::new(&clocks);
+
     let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
 
-    /* Set your password here */
     let pwd : String = String::from("12345");
 
     let mut keypad = Keypad::new((  
@@ -110,8 +103,9 @@ fn main() -> ! {
             if key == '#' {
                 if user_pwd == pwd
                 {
+                    /* Some additional callback here */
                     println!("Correct!");
-                    while (true) {}
+                    user_pwd.clear();
                 }
                 else 
                 {

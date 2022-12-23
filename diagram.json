@@ -1,0 +1,33 @@
+{
+    "version": 1,
+    "author": "Kirill Mikhailov <playfulfence@gmail.com>",
+    "editor": "wokwi",
+    "parts": [
+      {
+        "type": "board-esp32-s2-devkitm-1",
+        "id": "esp",
+        "top": -3.66,
+        "left": -63.57,
+        "attrs": { "builder": "rust-nostd-esp" }
+      },
+      { 
+        "type": "wokwi-membrane-keypad", 
+        "id": "keypad1", 
+        "top": -98.2, 
+        "left": 63.33, 
+        "attrs": {"columns" : "3"} 
+      }
+    ],
+    "connections": [
+      [ "esp:TX", "$serialMonitor:RX", "", [] ],
+      [ "esp:RX", "$serialMonitor:TX", "", [] ],
+      [ "keypad1:R2", "esp:5", "limegreen", [ "v58.37", "h-303.66", "v-220.72" ] ],
+      [ "keypad1:R3", "esp:4", "violet", [ "v68.37", "h-331.16", "v-240.32" ] ],
+      [ "keypad1:R4", "esp:3", "white", [ "v79.03", "h-356.66", "v-260.58" ] ],
+      [ "keypad1:C1", "esp:2", "blue", [ "v88.37", "h-380.16", "v-279.52" ] ],
+      [ "keypad1:C2", "esp:1", "white", [ "v99.03", "h-401", "v-299.78" ] ],
+      [ "keypad1:C3", "esp:0", "green", [ "v109.03", "h-424.75", "v-319.38" ] ],
+      [ "keypad1:R1", "esp:6", "red", [ "v47.75", "h-278.31", "v-202.77" ] ]
+    ],
+    "serialMonitor": { "display": "terminal" }
+  }
